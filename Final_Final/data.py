@@ -7,8 +7,8 @@ path = r"D:\test"
 durations = [0.5,0.75,0.25,1,1.5,2,3,4]
 timestep = 0.25
 sequence_length = 128
-single_path = r'C:\Users\Krishna Mohan\OneDrive\Desktop\music_ai\Final_Final\single_song.txt'
-map_path = r'C:\Users\Krishna Mohan\OneDrive\Desktop\music_ai\Final_Final\map.json'
+single_path = 'single_song.txt'
+map_path = 'map.json'
 
 '''load songfiles using music21'''
 def loadfiles(path, max_limit=-1):
