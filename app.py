@@ -3,24 +3,32 @@ import music21 as m21
 import tempfile
 import os
 import sys
-import torch
+import time
 from Final_Final.generator import Malody_Generator, save_melody, seed_dict
-from drum.drum_gen import DrumGenerator  # New import
+from drum.drum_gen import DrumGenerator
 
 # Configure paths
 sys.path.append(os.path.join(os.path.dirname(__file__), "Final_Final"))
 sys.path.append(os.path.join(os.path.dirname(__file__), "drum"))
 
 def midi_to_wav(midi_path, wav_path):
-    """Convert MIDI to WAV using music21's built-in synthesizer"""
-    midi = m21.converter.parse(midi_path)
-    sf_path = m21.environment.Environment()['soundfont']
-    if sf_path is None:
-        raise ValueError("No SoundFont configured. Please install MuseScore and set the MUSESCORE_PATH environment variable.")
-    midi.synth().write(wav_path)
-
+    """Fallback conversion using fluidsynth"""
+    import subprocess
+    
+    sf_path = os.path.abspath("FluidR3_GM.sf2")
+    command = f'fluidsynth -ni "{sf_path}" "{midi_path}" -F "{wav_path}" -r 44100 -T wav'
+    
+    try:
+        subprocess.run(command, check=True, shell=True, capture_output=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Fluidsynth error: {e.stderr.decode()}")
+    
 def main():
     st.title("🎵 AI Music Generator")
+    
+    # Initialize session state for history
+    if 'history' not in st.session_state:
+        st.session_state.history = []
     
     # Sidebar controls
     st.sidebar.header("Generation Settings")
@@ -61,55 +69,80 @@ def main():
         with st.spinner("Composing your masterpiece..."):
             try:
                 with tempfile.TemporaryDirectory() as tmp_dir:
+                    # Generate content
                     if model_type == "Melody":
-                        # Melody generation
                         melody = Malody_Generator(
                             seed=seed_dict[selected_seed],
                             num_steps=200,
                             sequence_length=128,
                             temperature=temperature
                         )
-                        
                         midi_path = os.path.join(tmp_dir, "generated.mid")
                         wav_path = os.path.join(tmp_dir, "output.wav")
                         save_melody(melody, file_name=midi_path)
-                        
                     else:
-                        # Drum generation
                         drum_generator = DrumGenerator(
                             model_path='drum/model_drum.pth',
                             map_path='drum/drum_map.json'
                         )
-                        
                         sequence = drum_generator.generate_sequence(
                             length=drum_length,
                             temperature=temperature
                         )
-                        
                         midi_path = os.path.join(tmp_dir, "generated_drums.mid")
                         wav_path = os.path.join(tmp_dir, "output.wav")
                         drum_generator.save_to_midi(sequence, midi_path)
 
-                    # Common output handling
+                    # Read files before tempdir cleanup
+                    with open(midi_path, "rb") as f:
+                        midi_bytes = f.read()
+                    
                     try:
                         midi_to_wav(midi_path, wav_path)
-                        st.success("🎉 Composition Complete!")
-                        st.audio(wav_path, format='audio/wav')
+                        with open(wav_path, "rb") as f:
+                            wav_bytes = f.read()
+                        error = None
                     except Exception as e:
-                        st.warning("Couldn't generate audio preview. MIDI download is still available.")
-                        st.error(f"Audio conversion error: {str(e)}")
+                        wav_bytes = None
+                        error = str(e)
 
-                    # Download button
-                    with open(midi_path, "rb") as file:
-                        st.download_button(
-                            label="⬇️ Download MIDI File",
-                            data=file,
-                            file_name="generated.mid",
-                            mime="audio/midi"
-                        )
+                    # Add to history (newest first)
+                    st.session_state.history.insert(0, {
+                        'timestamp': time.time(),
+                        'model_type': model_type,
+                        'wav_bytes': wav_bytes,
+                        'midi_bytes': midi_bytes,
+                        'error': error
+                    })
+
+                    # Keep only last 5 entries
+                    if len(st.session_state.history) > 5:
+                        st.session_state.history = st.session_state.history[:5]
 
             except Exception as e:
                 st.error(f"Error generating music: {str(e)}")
+
+    # Display history
+    for entry in st.session_state.history:
+        with st.container():
+            st.write(f"**{entry['model_type']} Track** (Generated: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(entry['timestamp']))})")
+            
+            if entry['error']:
+                st.warning("Couldn't generate audio preview. MIDI download is still available.")
+                st.error(f"Audio conversion error: {entry['error']}")
+            else:
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.audio(entry['wav_bytes'], format='audio/wav')
+                with col2:
+                    st.download_button(
+                        label="⬇️ Download MIDI",
+                        data=entry['midi_bytes'],
+                        file_name="generated.mid",
+                        mime="audio/midi",
+                        key=f"dl_{entry['timestamp']}"
+                    )
+            st.markdown("---")
 
 if __name__ == "__main__":
     main()
