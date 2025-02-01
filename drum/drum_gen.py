@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import json
 import numpy as np
-from drum_data import get_vocab_size
+from drum.drum_data import get_vocab_size
 
 class Model(nn.Module):
   def __init__(self,in_size,vocab_size,hidden_dim,out_notes):

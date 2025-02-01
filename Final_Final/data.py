@@ -8,7 +8,8 @@ durations = [0.5,0.75,0.25,1,1.5,2,3,4]
 timestep = 0.25
 sequence_length = 128
 single_path = 'single_song.txt'
-map_path = 'map.json'
+import os
+map_path = os.path.join(os.path.dirname(__file__), 'map.json')
 
 '''load songfiles using music21'''
 def loadfiles(path, max_limit=-1):

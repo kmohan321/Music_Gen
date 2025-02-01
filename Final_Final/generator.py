@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from data import get_vocabsize
+from Final_Final.data import get_vocabsize
 import json
 import music21 as m21
 
@@ -31,11 +31,11 @@ hidden_dim = 256
 vocab_size = get_vocabsize()
 model = Model(hidden_dim,vocab_size,hidden_dim,vocab_size).to(device)
 
-model.load_state_dict(torch.load("model.pth"))
+model.load_state_dict(torch.load("Final_Final/model.pth"))
 
 def Malody_Generator(seed,num_steps,sequence_length,temperature):
 
-    with open('map.json','r') as f:
+    with open('Final_Final/map.json','r') as f:
       mapping = json.load(f)
       
     melody = seed.split()
