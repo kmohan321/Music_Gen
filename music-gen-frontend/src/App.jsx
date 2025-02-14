@@ -29,13 +29,13 @@ function App() {
     transitions: { duration: { standard: 300 } },
   });
 
-  // Ref to hold current darkMode value for useEffect closures
+  // Ref to hold current darkMode value
   const darkModeRef = useRef(darkMode);
   useEffect(() => {
     darkModeRef.current = darkMode;
   }, [darkMode]);
 
-  // Seed dictionary for melody generation
+  // Seed dictionary
   const seedOptions = {
     seed1: "_ 60 _ _ _ 55 _ _ _ 65 _",
     seed2: "_ 67 _ 65 _ 64 _ 62 _ 60 _",
@@ -55,9 +55,8 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // History list state
+  // History state
   const [history, setHistory] = useState([]);
-  // Currently selected track
   const [currentTrack, setCurrentTrack] = useState(null);
 
   // Audio player state and refs
@@ -71,47 +70,56 @@ function App() {
   const dataArrayRef = useRef(null);
   const bufferLengthRef = useRef(null);
 
-  // Visualization effect - remains in App.jsx as it directly uses audio and canvas refs which are managed here
+  // Visualization effect - useEffect to setup and draw, ensure refs are ready
   useEffect(() => {
     console.log("Visualization useEffect: Entered");
 
     const setupVisualization = () => {
-      console.log("setupVisualization: Running deferred setup");
-      if (!audioRef.current || !canvasRef.current) {
-        console.log("setupVisualization: refs NOT ready even in deferred setup, exiting");
-        return;
-      }
-      console.log("setupVisualization: refs ARE ready in deferred setup, proceeding");
+      console.log("setupVisualization: Running setup");
+      const audio = audioRef.current; // Get current audio and canvas refs
+      const canvas = canvasRef.current;
 
+      if (!audio || !canvas) { // Check if refs are available
+        console.log("setupVisualization: audioRef or canvasRef is null, delaying setup");
+        setTimeout(setupVisualization, 100); // Retry after a short delay
+        return; // Exit and retry later
+      }
+      console.log("setupVisualization: refs are valid, proceeding with setup");
+
+      // Initialize AudioContext and analyser only once
       if (!audioContextRef.current) {
+        console.log("setupVisualization: Initializing AudioContext");
         audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
         analyserRef.current = audioContextRef.current.createAnalyser();
         analyserRef.current.fftSize = 64;
         bufferLengthRef.current = analyserRef.current.frequencyBinCount;
         dataArrayRef.current = new Uint8Array(bufferLengthRef.current);
 
-        const source = audioContextRef.current.createMediaElementSource(audioRef.current);
+        const source = audioContextRef.current.createMediaElementSource(audio);
         source.connect(analyserRef.current);
         analyserRef.current.connect(audioContextRef.current.destination);
-
-        console.log("AudioContext, Analyser, SourceNode created and connected");
+        console.log("setupVisualization: AudioContext, Analyser, SourceNode created and connected");
       } else {
-        console.log("AudioContext, Analyser already initialized, reusing");
+        console.log("setupVisualization: AudioContext already initialized");
       }
 
-
-      const canvas = canvasRef.current;
       const canvasCtx = canvas.getContext("2d");
+      if (!canvasCtx) {
+        console.error("setupVisualization: Canvas context is null!");
+        return;
+      }
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
 
-
       const draw = () => {
-        if (!analyserRef.current || !canvasCtx || !dataArrayRef.current) return;
+        if (!analyserRef.current || !canvasCtx || !dataArrayRef.current) {
+          console.log("draw: Analyser, context, or dataArray NOT ready, exiting draw");
+          return;
+        }
         requestAnimationFrame(draw);
-
         analyserRef.current.getByteFrequencyData(dataArrayRef.current);
 
+        // Visualization drawing logic (same as before)
         const grad = canvasCtx.createLinearGradient(0, 0, canvas.width, canvas.height);
         if (darkModeRef.current) {
           grad.addColorStop(0, "#1e1e1e");
@@ -130,15 +138,15 @@ function App() {
           canvasCtx.fillRect(i * barWidth, canvas.height - barHeight, barWidth - 2, barHeight);
         }
       };
-
       draw();
     };
 
-    setTimeout(setupVisualization, 0);
+    setupVisualization(); // Call setup directly, it handles ref checks and retry
 
-  }, []);
+  }, [darkMode]); // Dependency array: darkMode - re-run effect on theme change
 
-  // Function to handle music generation API call - remains in App.jsx as it manages app-level state (history, currentTrack, loading, error)
+
+  // Function to handle music generation API call
   const handleGenerate = async () => {
     setLoading(true);
     setError('');
@@ -155,12 +163,13 @@ function App() {
       } else {
         const newTrack = {
           id: Date.now(),
-          audioSrc: `http://localhost:8000/audio/${data.audio_filename}`, // Audio URL from backend
+          audioSrc: `http://localhost:8000/audio/${data.audio_filename}`,
           midiData: `data:audio/midi;base64,${data.midi_base64}`,
           timestamp: new Date().toLocaleString(),
         };
         setHistory((prev) => [newTrack, ...prev]);
         setCurrentTrack(newTrack);
+        console.log("handleGenerate: New track set:", newTrack);
       }
     } catch (err) {
       console.error(err);
@@ -169,18 +178,26 @@ function App() {
     setLoading(false);
   };
 
-  // Audio player functions - mostly passed down to AudioPlayer component, some state management remains here
+  // Audio player functions
   const togglePlay = () => {
-    if (!audioRef.current) return;
+    console.log("togglePlay: isPlaying before toggle:", isPlaying);
+    if (!audioRef.current) {
+      console.log("togglePlay: audioRef.current is null, exiting");
+      return;
+    }
     if (isPlaying) {
+      console.log("togglePlay: Pausing audio");
       audioRef.current.pause();
     } else {
+      console.log("togglePlay: Playing audio, audioContext state:", audioContextRef.current?.state);
       if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
         audioContextRef.current.resume();
+        console.log("togglePlay: AudioContext resumed");
       }
-      audioRef.current.play();
+      audioRef.current.play().catch(e => console.error("Audio play failed:", e));
     }
     setIsPlaying((prev) => !prev);
+    console.log("togglePlay: isPlaying after toggle:", !isPlaying);
   };
 
   const handleTimeUpdate = () => {
@@ -192,30 +209,41 @@ function App() {
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
       setDuration(audioRef.current.duration);
+      console.log("handleLoadedMetadata: Duration loaded:", audioRef.current.duration);
     }
   };
 
   const handleSeek = (event, newValue) => {
+    console.log("handleSeek: Seek to time:", newValue);
     if (audioRef.current) {
       audioRef.current.currentTime = newValue;
       setProgress(newValue);
+      console.log("handleSeek: Audio currentTime set to:", newValue);
     }
   };
 
   useEffect(() => {
-    if (currentTrack && audioRef.current) {
-      audioRef.current.load();
-      setIsPlaying(false);
-      setProgress(0);
+    if (currentTrack) { // Check if currentTrack is not null
+      console.log("useEffect [currentTrack]: currentTrack changed:", currentTrack);
+      if (audioRef.current) {
+        // audioRef.current.load();
+        setIsPlaying(false);
+        setProgress(0);
+        console.log("useEffect [currentTrack]: Audio loaded, isPlaying reset, progress reset");
+      } else {
+        console.log("useEffect [currentTrack]: audioRef is null, cannot load audio");
+      }
+    } else {
+      console.log("useEffect [currentTrack]: currentTrack is null, doing nothing");
     }
   }, [currentTrack]);
+
 
   const formatTime = (time) => {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
-
 
   return (
     <ThemeProvider theme={theme}>
@@ -241,10 +269,10 @@ function App() {
             sx={{
               display: 'flex',
               gap: 2,
-              height: 'calc(100vh - 100px)', // Adjust height based on TopBar height
+              height: 'calc(100vh - 100px)',
             }}
           >
-            {/* Generation Controls Panel Component */}
+            {/* Generation Controls Panel */}
             <motion.div style={{ flex: '1 1 300px', minWidth: '300px', height: '100%' }}>
               <GenerationControls
                 modelType={modelType}
@@ -263,7 +291,7 @@ function App() {
               />
             </motion.div>
 
-            {/* Audio Player Panel Component */}
+            {/* Audio Player Panel */}
             <motion.div style={{ flex: '2 1 400px', minWidth: '400px', height: '100%' }}>
               <AudioPlayer
                 currentTrack={currentTrack}
@@ -282,18 +310,21 @@ function App() {
                 setDuration={setDuration}
                 darkMode={darkMode}
               />
-              {/* Hidden audio element - remains in App.jsx to be accessible by refs and state */}
-              <audio
-                ref={audioRef}
-                src={currentTrack?.audioSrc || ""} // Use optional chaining in case currentTrack is null
-                onTimeUpdate={handleTimeUpdate}
-                onLoadedMetadata={handleLoadedMetadata}
-                onEnded={() => setIsPlaying(false)}
-                style={{ width: '100%', marginTop: 10, display: 'none' }}
-              />
+              {/* Hidden audio element */}
+              {currentTrack && ( // Conditionally render audio element when currentTrack is available
+                <audio
+                  ref={audioRef}
+                  src={currentTrack.audioSrc}
+                  onTimeUpdate={handleTimeUpdate}
+                  onLoadedMetadata={handleLoadedMetadata}
+                  onEnded={() => setIsPlaying(false)}
+                  style={{ width: '100%', marginTop: 10, display: 'none' }}
+                  crossOrigin="anonymous"
+                />
+              )}
             </motion.div>
 
-            {/* History Panel Component */}
+            {/* History Panel */}
             <motion.div style={{ flex: '1 1 300px', minWidth: '300px', height: '100%' }}>
               <HistoryPanel
                 history={history}

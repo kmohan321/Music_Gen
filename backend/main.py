@@ -16,15 +16,6 @@ from drum.drum_gen import DrumGenerator
 
 app = FastAPI(title="AI Music Generator API")
 
-# Enable CORS so that your React frontend (running on a different port) can call the API.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, list your frontend URL(s) - e.g., ["http://your-frontend-domain.com"]
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # --- Configuration ---
 AUDIO_FILES_DIR = "static/audio"  # Directory to save audio files
 STATIC_MP3_FILE = "test.mp3"      # Static MP3 file name (place test.mp3 next to main.py)
@@ -123,7 +114,7 @@ async def get_audio_file(filename: str):
     audio_filepath = os.path.join(AUDIO_FILES_DIR, filename)
     if not os.path.exists(audio_filepath):
         raise HTTPException(status_code=404, detail="Audio file not found")
-    return FileResponse(audio_filepath) # FastAPI automatically sets Content-Type
+    return FileResponse(audio_filepath, headers={"Access-Control-Allow-Origin": "http://localhost:5173"})
 
 @app.get("/test_audio")
 async def get_test_audio():
@@ -137,3 +128,13 @@ if __name__ == "__main__":
     import uvicorn
     # Run with: python main.py
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+
+# Enable CORS - Corrected and made explicit
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], # Be explicit about methods
+    allow_headers=["Content-Type", "Authorization"], # Be explicit about headers if needed
+)
