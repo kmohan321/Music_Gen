@@ -26,8 +26,8 @@ function HistoryPanel({ history, currentTrack, setCurrentTrack, darkMode }) {
                 ) : (
                     history.map((track) => {
                         // Ensure track.audioSrc is just the filename (e.g., "generated_....wav")
-                        const wavFilename = track.audioSrc;
-                        const mp3Filename = wavFilename.replace('.wav', '.mp3'); // Derive MP3 filename
+                        const wavFilename = track.wavFilename;
+                        const mp3Filename = track.mp3Filename; // Derive MP3 filename
                         return (
                             <Box
                                 key={track.id}
@@ -58,7 +58,7 @@ function HistoryPanel({ history, currentTrack, setCurrentTrack, darkMode }) {
                                     <Button
                                         variant="text"
                                         startIcon={<DownloadIcon />}
-                                        href={`http://localhost:8000/audio/${wavFilename}`} // Full URL for WAV
+                                        href={`http://localhost:8000/audio/${track.wavFilename}`} // Full URL
                                         download={`generated_${track.id}.wav`}
                                         size="small"
                                     >
@@ -67,7 +67,7 @@ function HistoryPanel({ history, currentTrack, setCurrentTrack, darkMode }) {
                                     <Button
                                         variant="text"
                                         startIcon={<DownloadIcon />}
-                                        href={`http://localhost:8000/audio/${mp3Filename}`} // Full URL for MP3
+                                        href={`http://localhost:8000/audio/${track.mp3Filename}`} // Use mp3Filename
                                         download={`generated_${track.id}.mp3`}
                                         size="small"
                                     >

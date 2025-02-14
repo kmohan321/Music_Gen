@@ -163,10 +163,12 @@ function App() {
       } else {
         const newTrack = {
           id: Date.now(),
-          audioSrc: data.audio_filename,
+          wavFilename: data.wav_filename,  // Changed from audioSrc
+          mp3Filename: data.mp3_filename,  // Add this
           midiData: `data:audio/midi;base64,${data.midi_base64}`,
           timestamp: new Date().toLocaleString(),
         };
+
         setHistory((prev) => [newTrack, ...prev]);
         setCurrentTrack(newTrack);
         console.log("handleGenerate: New track set:", newTrack);
@@ -311,10 +313,10 @@ function App() {
                 darkMode={darkMode}
               />
               {/* Hidden audio element */}
-              {currentTrack && ( // Conditionally render audio element when currentTrack is available
+              {currentTrack && (
                 <audio
                   ref={audioRef}
-                  src={`http://localhost:8000/audio/${currentTrack.audioSrc}`}
+                  src={`http://localhost:8000/audio/${currentTrack.wavFilename}`} // Use wavFilename
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleLoadedMetadata}
                   onEnded={() => setIsPlaying(false)}
