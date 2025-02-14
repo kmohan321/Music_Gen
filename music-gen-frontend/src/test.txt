@@ -1,0 +1,554 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Typography,
+  Button,
+  Slider,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormControl,
+  FormLabel,
+  FormHelperText,
+  Select,
+  MenuItem,
+  InputLabel,
+  CircularProgress,
+  Box,
+  IconButton,
+  Switch,
+} from '@mui/material';
+import { createTheme, ThemeProvider, CssBaseline } from '@mui/material';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PauseIcon from '@mui/icons-material/Pause';
+import FastForwardIcon from '@mui/icons-material/FastForward';
+import FastRewindIcon from '@mui/icons-material/FastRewind';
+import DownloadIcon from '@mui/icons-material/Download';
+import axios from 'axios';
+import { motion } from 'framer-motion';
+
+function App() {
+  // Theme toggling state
+  const [darkMode, setDarkMode] = useState(false);
+  const toggleTheme = () => setDarkMode((prev) => !prev);
+  const theme = createTheme({
+    palette: {
+      mode: darkMode ? 'dark' : 'light',
+      primary: { main: darkMode ? '#88c0d0' : '#5e81ac' },
+      secondary: { main: darkMode ? '#a3be8c' : '#bf616a' },
+      background: { default: darkMode ? '#121212' : '#ffffff' },
+    },
+    transitions: { duration: { standard: 300 } },
+  });
+
+  // Use a ref to hold the current darkMode value
+  const darkModeRef = useRef(darkMode);
+  useEffect(() => {
+    darkModeRef.current = darkMode;
+  }, [darkMode]);
+
+  // Seed dictionary for melody generation
+  const seedOptions = {
+    seed1: "_ 60 _ _ _ 55 _ _ _ 65 _",
+    seed2: "_ 67 _ 65 _ 64 _ 62 _ 60 _",
+    seed3: "_ 69 _ 65 _ 67 _ 69 _ 67 _ 65 _ 64 _",
+    seed4: "64 _ 69 _ _ _ 71 _ 72 _ _ 71",
+    seed5: "_ 67 _ 64 _ 60 _ _ R 76 _",
+    seed6: "71 _ _ 69 68 _ 69 _ _ _ _ _ R _ _ _",
+    seed7: "_ 62 _ _ _ R _ _ _ 55 _ _ _ 67 _ _ _ 67 _",
+    seed8: "_ 62 _ _ _ _ _ 60 _ 60 _ _ _ 55 _",
+  };
+
+  // Generation controls state
+  const [modelType, setModelType] = useState('Melody');
+  const [seed, setSeed] = useState(seedOptions.seed2);
+  const [temperature, setTemperature] = useState(1.7);
+  const [drumLength, setDrumLength] = useState(256);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // History list state
+  const [history, setHistory] = useState([]);
+  // Currently selected track
+  const [currentTrack, setCurrentTrack] = useState(null);
+
+  // Audio player state and refs
+  const audioRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [audioContext, setAudioContext] = useState(null); // State to hold AudioContext
+  const [analyser, setAnalyser] = useState(null); // State to hold Analyser Node
+  const [bufferLength, setBufferLength] = useState(0);
+  const [dataArray, setDataArray] = useState(null);
+
+  useEffect(() => {
+    // Initialize AudioContext and Analyser only once
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const analyserNode = audioCtx.createAnalyser();
+    analyserNode.fftSize = 64;
+
+    setAudioContext(audioCtx);
+    setAnalyser(analyserNode);
+    setBufferLength(analyserNode.frequencyBinCount);
+    setDataArray(new Uint8Array(analyserNode.frequencyBinCount));
+
+    return () => {
+      if (audioCtx) {
+        audioCtx.close(); // Clean up on unmount
+      }
+    };
+  }, []); // Run only once on mount
+
+  useEffect(() => {
+    console.log("Visualization useEffect: Entered"); // Debug log
+
+    const setupVisualization = () => { // Wrap the effect logic in a function
+        console.log("setupVisualization: Running deferred setup");
+
+        // Check if refs are ready BEFORE proceeding (still important)
+        if (!audioRef.current || !canvasRef.current) {
+            console.log("setupVisualization: refs NOT ready even in deferred setup, exiting");
+            return; // Exit if refs are still not ready
+        }
+        console.log("setupVisualization: refs ARE ready in deferred setup, proceeding");
+
+
+        const audioCtx = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+        const analyserNode = analyser || audioCtx.createAnalyser();
+        analyserNode.fftSize = 64;
+        const bufferLengthValue = bufferLength || analyserNode.frequencyBinCount;
+        const dataArrayValue = dataArray || new Uint8Array(bufferLengthValue);
+
+        setAudioContext(audioCtx);
+        setAnalyser(analyserNode);
+        setBufferLength(bufferLengthValue);
+        setDataArray(dataArrayValue);
+
+
+        const source = audioCtx.createMediaElementSource(audioRef.current);
+        source.connect(analyserNode);
+        analyserNode.connect(audioCtx.destination);
+
+        const canvas = canvasRef.current;
+        const canvasCtx = canvas.getContext("2d");
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+
+        const draw = () => {
+            // console.log("draw function: Entered"); // Debug log - can keep or remove, now less critical
+            if (!analyserNode || !canvasCtx || !dataArrayValue) {
+                // console.log("draw function: Safety check failed, exiting draw"); // Debug log - can keep or remove
+                return; // Safety check
+            }
+            // console.log("draw function: Safety check passed, proceeding to draw"); // Debug log - can remove
+
+            requestAnimationFrame(draw);
+
+            analyserNode.getByteFrequencyData(dataArrayValue);
+
+            const grad = canvasCtx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            if (darkModeRef.current) {
+                grad.addColorStop(0, "#1e1e1e");
+                grad.addColorStop(1, "#444");
+            } else {
+                grad.addColorStop(0, "#fff");
+                grad.addColorStop(1, "#f0f0f0");
+            }
+            canvasCtx.fillStyle = grad;
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = canvas.width / bufferLengthValue;
+            for (let i = 0; i < bufferLengthValue; i++) {
+                const barHeight = dataArrayValue[i] * 1.5;
+                canvasCtx.fillStyle = `hsl(${(i / bufferLengthValue) * 360}, ${darkModeRef.current ? 80 : 60}%, ${darkModeRef.current ? 50 : 40}%)`;
+                canvasCtx.fillRect(i * barWidth, canvas.height - barHeight, barWidth - 2, barHeight);
+            }
+        };
+
+        draw(); // Start the animation loop
+    };
+
+    setTimeout(setupVisualization, 0); // Defer effect execution using setTimeout
+
+}, [audioContext, analyser, bufferLength, dataArray]); // Dependency array - keep as before, no refs
+  const handleGenerate = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await axios.post('http://localhost:8000/generate', {
+        model_type: modelType,
+        temperature: temperature,
+        seed: modelType === 'Melody' ? seed : undefined,
+        drum_length: modelType === 'Drum' ? drumLength : undefined,
+      });
+      const data = response.data;
+      if (data.error) {
+        setError(data.error);
+      } else {
+        const newTrack = {
+          id: Date.now(),
+          audioData: `data:audio/wav;base64,${data.audio_base64}`,
+          audioDataMp3: `data:audio/mp3;base64,${data.audio_base64}`,
+          midiData: `data:audio/midi;base64,${data.midi_base64}`,
+          timestamp: new Date().toLocaleString(),
+        };
+        setHistory((prev) => [newTrack, ...prev]);
+        setCurrentTrack(newTrack);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Error generating music');
+    }
+    setLoading(false);
+  };
+
+  // Audio player functions (rest of your audio player functions remain the same)
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      if (audioContext && audioContext.state === 'suspended') { // Use audioContext state here
+        audioContext.resume(); // Use audioContext to resume
+      }
+      audioRef.current.play();
+    }
+    setIsPlaying((prev) => !prev);
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setProgress(audioRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleSeek = (event, newValue) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = newValue;
+      setProgress(newValue);
+    }
+  };
+
+  useEffect(() => {
+    if (currentTrack && audioRef.current) {
+      audioRef.current.load();
+      setIsPlaying(false);
+      setProgress(0);
+    }
+  }, [currentTrack]);
+
+  const formatTime = (time) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box
+        sx={{
+          width: '100vw',
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          background: darkMode
+            ? 'linear-gradient(135deg, #121212, #1d1d1d)'
+            : 'linear-gradient(135deg, #f0f4ff, #cfd9df)',
+          transition: 'background 0.5s ease-in-out',
+        }}
+      >
+        {/* Top Bar */}
+        <Box
+          sx={{
+            px: 3,
+            py: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            backgroundColor: darkMode ? '#121212' : '#ffffff',
+            borderBottom: '1px solid',
+            borderColor: darkMode ? '#444' : '#ccc',
+          }}
+        >
+          <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: '0.05em' }}>
+            🎵 AI Music Generator
+          </Typography>
+          <FormControlLabel
+            control={<Switch checked={darkMode} onChange={toggleTheme} color="secondary" />}
+            label={darkMode ? 'Dark Mode' : 'Light Mode'}
+          />
+        </Box>
+
+        {/* Main Content Container */}
+        <Box sx={{ flexGrow: 1, p: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              height: 'calc(100vh - 100px)',
+            }}
+          >
+            {/* Left Panel: Generation Controls */}
+            <motion.div style={{ flex: '1 1 300px', minWidth: '300px', height: '100%' }}>
+              <Box
+                sx={{
+                  backgroundColor: darkMode ? '#333' : '#fafafa',
+                  border: '1px solid',
+                  borderColor: darkMode ? '#444' : '#e0e0e0',
+                  borderRadius: 1,
+                  p: 2,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <Typography variant="h6" gutterBottom>
+                  Generation Controls
+                </Typography>
+                <FormControl component="fieldset" sx={{ mb: 2 }}>
+                  <FormLabel component="legend">Select Model Type:</FormLabel>
+                  <RadioGroup row value={modelType} onChange={(e) => setModelType(e.target.value)}>
+                    <FormControlLabel value="Melody" control={<Radio />} label="Melody" />
+                    <FormControlLabel value="Drum" control={<Radio />} label="Drum" />
+                  </RadioGroup>
+                </FormControl>
+                <Box sx={{ mb: 2 }}>
+                  <Typography gutterBottom>Temperature (Creativity): {temperature}</Typography>
+                  <Slider
+                    value={temperature}
+                    onChange={(e, newValue) => setTemperature(newValue)}
+                    min={0.1}
+                    max={2.5}
+                    step={0.1}
+                    valueLabelDisplay="auto"
+                  />
+                </Box>
+                {modelType === 'Melody' && (
+                  <Box sx={{ mb: 2 }}>
+                    <FormControl fullWidth variant="outlined">
+                      <InputLabel id="seed-select-label">Seed Melody</InputLabel>
+                      <Select
+                        labelId="seed-select-label"
+                        value={seed}
+                        label="Seed Melody"
+                        onChange={(e) => setSeed(e.target.value)}
+                      >
+                        {Object.keys(seedOptions).map((key) => (
+                          <MenuItem key={key} value={seedOptions[key]}>
+                            {`Seed ${key.replace('seed', '')}`}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      <FormHelperText>Select a seed melody</FormHelperText>
+                    </FormControl>
+                  </Box>
+                )}
+                {modelType === 'Drum' && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography gutterBottom>Drum Sequence Length: {drumLength}</Typography>
+                    <Slider
+                      value={drumLength}
+                      onChange={(e, newValue) => setDrumLength(newValue)}
+                      min={50}
+                      max={500}
+                      step={50}
+                      valueLabelDisplay="auto"
+                    />
+                  </Box>
+                )}
+                <Box sx={{ mt: 'auto', textAlign: 'center' }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    onClick={handleGenerate}
+                    startIcon={<PlayArrowIcon />}
+                    sx={{
+                      animation: loading ? 'pulse 1s infinite' : 'none',
+                      '@keyframes pulse': {
+                        '0%': { transform: 'scale(1)' },
+                        '50%': { transform: 'scale(1.1)' },
+                        '100%': { transform: 'scale(1)' },
+                      },
+                    }}
+                  >
+                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Generate Music'}
+                  </Button>
+                  {error && (
+                    <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+                      {error}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            </motion.div>
+
+            {/* Middle Panel: Audio Player */}
+            <motion.div style={{ flex: '2 1 400px', minWidth: '400px', height: '100%' }}>
+              <Box
+                sx={{
+                  backgroundColor: darkMode ? '#333' : '#fafafa',
+                  border: '1px solid',
+                  borderColor: darkMode ? '#444' : '#e0e0e0',
+                  borderRadius: 1,
+                  p: 2,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography variant="h6" gutterBottom>
+                  Audio Player
+                </Typography>
+                {currentTrack ? (
+                  <>
+                    <Typography variant="subtitle1" gutterBottom>
+                      {currentTrack.timestamp}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                      <IconButton
+                        onClick={() => {
+                          if (audioRef.current)
+                            audioRef.current.currentTime = Math.max(audioRef.current.currentTime - 10, 0);
+                        }}
+                      >
+                        <FastRewindIcon />
+                      </IconButton>
+                      <IconButton onClick={togglePlay}>
+                        {isPlaying ? <PauseIcon fontSize="large" /> : <PlayArrowIcon fontSize="large" />}
+                      </IconButton>
+                      <IconButton
+                        onClick={() => {
+                          if (audioRef.current)
+                            audioRef.current.currentTime = Math.min(audioRef.current.currentTime + 10, duration);
+                        }}
+                      >
+                        <FastForwardIcon />
+                      </IconButton>
+                    </Box>
+                    {/* Beat Visualization Canvas */}
+                    <Box
+                      sx={{
+                        width: '100%',
+                        border: '1px solid',
+                        borderColor: darkMode ? '#555' : '#ddd',
+                        mb: 2,
+                      }}
+                    >
+                      <canvas ref={canvasRef} style={{ width: '100%', height: '150px' }} />
+                    </Box>
+                    {/* Time Slider */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2, width: '100%' }}>
+                      <Typography variant="caption">{formatTime(progress)}</Typography>
+                      <Slider value={progress} min={0} max={duration} onChange={handleSeek} sx={{ flex: 1 }} />
+                      <Typography variant="caption">{formatTime(duration)}</Typography>
+                    </Box>
+                    {/* Download Buttons */}
+                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 2 }}>
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        href={currentTrack.audioData}
+                        download={`generated_${currentTrack.id}.wav`}
+                        startIcon={<DownloadIcon />}
+                      >
+                        WAV
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        href={currentTrack.audioDataMp3}
+                        download={`generated_${currentTrack.id}.mp3`}
+                        startIcon={<DownloadIcon />}
+                      >
+                        MP3
+                      </Button>
+                    </Box>
+                    {/* Hidden audio element */}
+                    <audio
+                      ref={audioRef} 
+                      src={currentTrack ? currentTrack.audioData : ''}
+                      onTimeUpdate={handleTimeUpdate}
+                      onLoadedMetadata={handleLoadedMetadata}
+                      onEnded={() => setIsPlaying(false)}
+                      style={{ width: '100%', display: 'none' }}
+                  />
+                  </>
+                ) : (
+                  <Typography variant="body1" sx={{ mt: 'auto' }}>
+                    No track selected
+                  </Typography>
+                )}
+              </Box>
+            </motion.div>
+
+            {/* Right Panel: History */}
+            <motion.div style={{ flex: '1 1 300px', minWidth: '300px', height: '100%' }}>
+              <Box
+                sx={{
+                  backgroundColor: darkMode ? '#333' : '#fafafa',
+                  border: '1px solid',
+                  borderColor: darkMode ? '#444' : '#e0e0e0',
+                  borderRadius: 1,
+                  p: 2,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <Typography variant="h6" gutterBottom>
+                  History
+                </Typography>
+                <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+                  {history.length === 0 ? (
+                    <Typography variant="body2">No history available.</Typography>
+                  ) : (
+                    history.map((track) => (
+                      <Box
+                        key={track.id}
+                        sx={{
+                          p: 1,
+                          mb: 1,
+                          border: '1px solid',
+                          borderColor:
+                            currentTrack && currentTrack.id === track.id ? 'primary.main' : 'divider',
+                          borderRadius: 0,
+                          cursor: 'pointer',
+                          transition: 'transform 0.3s',
+                          '&:hover': { transform: 'scale(1.02)' },
+                        }}
+                        onClick={() => setCurrentTrack(track)}
+                      >
+                        <Typography variant="body2">{track.timestamp}</Typography>
+                        <Button
+                          variant="text"
+                          startIcon={<DownloadIcon />}
+                          href={track.midiData}
+                          download={`generated_${track.id}.mid`}
+                          size="small"
+                        >
+                          MIDI
+                        </Button>
+                      </Box>
+                    ))
+                  )}
+                </Box>
+              </Box>
+            </motion.div>
+          </Box>
+        </Box>
+      </Box>
+    </ThemeProvider>
+  );
+}
+
+export default App;
