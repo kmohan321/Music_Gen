@@ -163,7 +163,7 @@ function App() {
       } else {
         const newTrack = {
           id: Date.now(),
-          audioSrc: `http://localhost:8000/audio/${data.audio_filename}`,
+          audioSrc: data.audio_filename,
           midiData: `data:audio/midi;base64,${data.midi_base64}`,
           timestamp: new Date().toLocaleString(),
         };
@@ -314,7 +314,7 @@ function App() {
               {currentTrack && ( // Conditionally render audio element when currentTrack is available
                 <audio
                   ref={audioRef}
-                  src={currentTrack.audioSrc}
+                  src={`http://localhost:8000/audio/${currentTrack.audioSrc}`}
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleLoadedMetadata}
                   onEnded={() => setIsPlaying(false)}

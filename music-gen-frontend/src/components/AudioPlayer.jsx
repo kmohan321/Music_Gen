@@ -1,5 +1,5 @@
-// src/components/AudioPlayer.jsx
-import React, { useRef, useEffect } from 'react';
+// src/components/AudioPlayer.jsx (Simplified Seeking)
+import React from 'react';
 import {
   Box,
   Typography,
@@ -11,26 +11,6 @@ import PauseIcon from '@mui/icons-material/Pause';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import FastRewindIcon from '@mui/icons-material/FastRewind';
 
-/**
- * AudioPlayer component for playing and controlling generated music tracks.
- *
- * @param {object} props - Component props.
- * @param {object | null} props.currentTrack - Currently selected music track object.
- * @param {boolean} props.isPlaying - Playback state.
- * @param {number} props.progress - Current playback progress in seconds.
- * @param {number} props.duration - Total duration of the audio in seconds.
- * @param {React.RefObject<HTMLAudioElement>} props.audioRef - Ref to the audio element.
- * @param {React.RefObject<HTMLCanvasElement>} props.canvasRef - Ref to the canvas for visualization.
- * @param {function} props.togglePlay - Function to toggle play/pause.
- * @param {function} props.handleTimeUpdate - Function to handle audio time updates.
- * @param {function} props.handleLoadedMetadata - Function to handle audio metadata loading.
- * @param {function} props.handleSeek - Function to handle seeking in audio.
- * @param {function} props.formatTime - Function to format time in mm:ss.
- * @param {function} props.setIsPlaying - Function to set the playing state.
- * @param {function} props.setProgress - Function to set the playback progress.
- * @param {function} props.setDuration - Function to set the audio duration.
- * @param {boolean} props.darkMode - Current dark mode state for styling.
- */
 function AudioPlayer({
   currentTrack,
   isPlaying,
@@ -39,9 +19,9 @@ function AudioPlayer({
   audioRef,
   canvasRef,
   togglePlay,
-  handleTimeUpdate,
+  handleTimeUpdate, // Make sure handleTimeUpdate is passed as prop
   handleLoadedMetadata,
-  handleSeek,
+  handleSeek,     // Make sure handleSeek is passed as prop
   formatTime,
   setIsPlaying,
   setProgress,
@@ -74,8 +54,9 @@ function AudioPlayer({
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
             <IconButton
               onClick={() => {
-                if (audioRef.current)
+                if (audioRef.current) {
                   audioRef.current.currentTime = Math.max(audioRef.current.currentTime - 10, 0);
+                }
               }}
             >
               <FastRewindIcon />
@@ -85,8 +66,9 @@ function AudioPlayer({
             </IconButton>
             <IconButton
               onClick={() => {
-                if (audioRef.current)
+                if (audioRef.current) {
                   audioRef.current.currentTime = Math.min(audioRef.current.currentTime + 10, duration);
+                }
               }}
             >
               <FastForwardIcon />
@@ -106,7 +88,15 @@ function AudioPlayer({
           {/* Time Slider */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2, width: '100%' }}>
             <Typography variant="caption">{formatTime(progress)}</Typography>
-            <Slider value={progress} min={0} max={duration} onChange={handleSeek} sx={{ flex: 1 }} />
+            <Slider
+              value={progress}
+              min={0}
+              max={duration}
+              onChange={handleSeek} // handleSeek as onChange
+              onMouseUp={() => {}} // Prevent immediate re-render after slider release (optional)
+              onTouchEnd={() => {}} // Prevent immediate re-render after touch end (optional)
+              sx={{ flex: 1 }}
+            />
             <Typography variant="caption">{formatTime(duration)}</Typography>
           </Box>
           {/* Download Buttons Removed from here */}

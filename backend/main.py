@@ -27,11 +27,30 @@ def midi_to_wav(midi_path, wav_path):
     """Convert a MIDI file to WAV using fluidsynth."""
     sf_path = os.path.abspath("FluidR3_GM.sf2")
     command = f'fluidsynth -ni "{sf_path}" "{midi_path}" -F "{wav_path}" -r 44100 -T wav'
+    print(f"midi_to_wav: Running command: {command}") # LOGGING - Add this
+    try:
+        completed_process = subprocess.run(command, check=True, shell=True, capture_output=True) # Capture output
+        print(f"midi_to_wav: Fluidsynth completed successfully.") # LOGGING - Add this
+        if completed_process.stderr: # Check for stderr even on success
+            print(f"midi_to_wav: Fluidsynth stderr: {completed_process.stderr.decode()}") # LOGGING
+    except subprocess.CalledProcessError as e:
+        error_message = f"Fluidsynth error: {e.stderr.decode()}"
+        print(f"midi_to_wav: ERROR - {error_message}") # LOGGING - Add this
+        raise RuntimeError(error_message)
+    except FileNotFoundError:
+        error_message = "Error: fluidsynth executable not found. Is it installed and in your PATH?"
+        print(f"midi_to_wav: ERROR - {error_message}") # LOGGING
+        raise RuntimeError(error_message)
+def wav_to_mp3(wav_path, mp3_path):
+    """Convert WAV to MP3 using ffmpeg"""
+    command = f'ffmpeg -i "{wav_path}" -codec:a libmp3lame -qscale:a 2 "{mp3_path}"'
     try:
         subprocess.run(command, check=True, shell=True, capture_output=True)
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Fluidsynth error: {e.stderr.decode()}")
-
+        error_message = f"FFmpeg error: {e.stderr.decode()}"
+        print(f"wav_to_mp3: ERROR - {error_message}")
+        raise RuntimeError(error_message)
+    
 # Request payload for generating music.
 class MusicRequest(BaseModel):
     model_type: str  # Either "Melody" or "Drum"
@@ -41,10 +60,11 @@ class MusicRequest(BaseModel):
 
 # Response payload.
 class MusicResponse(BaseModel):
-    audio_filename: str = None  # Filename of the generated audio file (to be used in URL)
-    midi_base64: str = None   # Base64 encoded MIDI file
+    audio_filename: str = None  # WAV filename
+    mp3_filename: str = None    # Add this
+    midi_base64: str = None
     error: str = None
-
+    
 @app.post("/generate", response_model=MusicResponse)
 def generate_music(request: MusicRequest):
     try:
@@ -112,8 +132,11 @@ def generate_music(request: MusicRequest):
 async def get_audio_file(filename: str):
     """Serve audio files from the static audio directory."""
     audio_filepath = os.path.join(AUDIO_FILES_DIR, filename)
+    print(f"get_audio_file: Attempting to serve file: {audio_filepath}") # LOGGING - Add this
     if not os.path.exists(audio_filepath):
+        print(f"get_audio_file: File NOT FOUND: {audio_filepath}") # LOGGING - Add this
         raise HTTPException(status_code=404, detail="Audio file not found")
+    print(f"get_audio_file: File FOUND, serving: {audio_filepath}") # LOGGING - Add this
     return FileResponse(audio_filepath, headers={"Access-Control-Allow-Origin": "http://localhost:5173"})
 
 @app.get("/test_audio")
