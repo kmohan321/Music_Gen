@@ -1,4 +1,3 @@
-// src/components/HistoryPanel.jsx (Download Button href - Enforce Relative Paths)
 import React from 'react';
 import { Box, Typography, Button, Stack } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -25,9 +24,8 @@ function HistoryPanel({ history, currentTrack, setCurrentTrack, darkMode }) {
                     <Typography variant="body2">No history available.</Typography>
                 ) : (
                     history.map((track) => {
-                        // Ensure track.audioSrc is just the filename (e.g., "generated_....wav")
                         const wavFilename = track.wavFilename;
-                        const mp3Filename = track.mp3Filename; // Derive MP3 filename
+                        const mp3Filename = track.mp3Filename;
                         return (
                             <Box
                                 key={track.id}

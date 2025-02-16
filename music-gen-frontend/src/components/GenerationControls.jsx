@@ -1,4 +1,3 @@
-// src/components/GenerationControls.jsx
 import React from 'react';
 import {
   Box,

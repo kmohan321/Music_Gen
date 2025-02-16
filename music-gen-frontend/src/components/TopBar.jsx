@@ -1,14 +1,6 @@
-// src/components/TopBar.jsx
 import React from 'react';
 import { Box, Typography, FormControlLabel, Switch } from '@mui/material';
 
-/**
- * TopBar component for the application header, including title and theme toggle.
- *
- * @param {object} props - Component props.
- * @param {boolean} props.darkMode - Current dark mode state.
- * @param {function} props.toggleTheme - Function to toggle dark mode.
- */
 function TopBar({ darkMode, toggleTheme }) {
   return (
     <Box

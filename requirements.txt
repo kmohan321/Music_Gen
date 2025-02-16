@@ -1,0 +1,8 @@
+pretty-midi
+numpy
+torch
+tqdm
+music21
+fastapi
+uvicorn
+pydantic

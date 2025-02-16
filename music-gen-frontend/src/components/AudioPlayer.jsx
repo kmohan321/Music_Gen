@@ -1,4 +1,3 @@
-// src/components/AudioPlayer.jsx (Simplified Seeking)
 import React from 'react';
 import {
   Box,
@@ -19,9 +18,9 @@ function AudioPlayer({
   audioRef,
   canvasRef,
   togglePlay,
-  handleTimeUpdate, // Make sure handleTimeUpdate is passed as prop
+  handleTimeUpdate,
   handleLoadedMetadata,
-  handleSeek,     // Make sure handleSeek is passed as prop
+  handleSeek,
   formatTime,
   setIsPlaying,
   setProgress,
@@ -92,15 +91,13 @@ function AudioPlayer({
               value={progress}
               min={0}
               max={duration}
-              onChange={handleSeek} // handleSeek as onChange
-              onMouseUp={() => {}} // Prevent immediate re-render after slider release (optional)
-              onTouchEnd={() => {}} // Prevent immediate re-render after touch end (optional)
+              onChange={handleSeek}
+              onMouseUp={() => { }}
+              onTouchEnd={() => { }}
               sx={{ flex: 1 }}
             />
             <Typography variant="caption">{formatTime(duration)}</Typography>
           </Box>
-          {/* Download Buttons Removed from here */}
-          {/* Hidden audio element - moved to App.jsx as it's controlled by App's state and refs*/}
         </>
       ) : (
         <Typography variant="body1" sx={{ mt: 'auto' }}>
