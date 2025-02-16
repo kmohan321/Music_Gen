@@ -1,4 +1,3 @@
-// src/App.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Box,
@@ -9,14 +8,12 @@ import {
 import { motion } from 'framer-motion';
 import axios from 'axios';
 
-// Import created components
 import TopBar from './components/TopBar';
 import GenerationControls from './components/GenerationControls';
 import AudioPlayer from './components/AudioPlayer';
 import HistoryPanel from './components/HistoryPanel';
 
 function App() {
-  // Theme toggling state
   const [darkMode, setDarkMode] = useState(false);
   const toggleTheme = () => setDarkMode((prev) => !prev);
   const theme = createTheme({
@@ -29,13 +26,11 @@ function App() {
     transitions: { duration: { standard: 300 } },
   });
 
-  // Ref to hold current darkMode value
   const darkModeRef = useRef(darkMode);
   useEffect(() => {
     darkModeRef.current = darkMode;
   }, [darkMode]);
 
-  // Seed dictionary
   const seedOptions = {
     seed1: "_ 60 _ _ _ 55 _ _ _ 65 _",
     seed2: "_ 67 _ 65 _ 64 _ 62 _ 60 _",
@@ -47,7 +42,6 @@ function App() {
     seed8: "_ 62 _ _ _ _ _ 60 _ 60 _ _ _ 55 _",
   };
 
-  // Generation controls state
   const [modelType, setModelType] = useState('Melody');
   const [seed, setSeed] = useState(seedOptions.seed2);
   const [temperature, setTemperature] = useState(1.7);
@@ -55,11 +49,9 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // History state
   const [history, setHistory] = useState([]);
   const [currentTrack, setCurrentTrack] = useState(null);
 
-  // Audio player state and refs
   const audioRef = useRef(null);
   const canvasRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -70,25 +62,18 @@ function App() {
   const dataArrayRef = useRef(null);
   const bufferLengthRef = useRef(null);
 
-  // Visualization effect - useEffect to setup and draw, ensure refs are ready
   useEffect(() => {
-    console.log("Visualization useEffect: Entered");
 
     const setupVisualization = () => {
-      console.log("setupVisualization: Running setup");
-      const audio = audioRef.current; // Get current audio and canvas refs
+      const audio = audioRef.current;
       const canvas = canvasRef.current;
 
-      if (!audio || !canvas) { // Check if refs are available
-        console.log("setupVisualization: audioRef or canvasRef is null, delaying setup");
-        setTimeout(setupVisualization, 100); // Retry after a short delay
-        return; // Exit and retry later
+      if (!audio || !canvas) {
+        setTimeout(setupVisualization, 100);
+        return;
       }
-      console.log("setupVisualization: refs are valid, proceeding with setup");
 
-      // Initialize AudioContext and analyser only once
       if (!audioContextRef.current) {
-        console.log("setupVisualization: Initializing AudioContext");
         audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
         analyserRef.current = audioContextRef.current.createAnalyser();
         analyserRef.current.fftSize = 64;
@@ -98,7 +83,6 @@ function App() {
         const source = audioContextRef.current.createMediaElementSource(audio);
         source.connect(analyserRef.current);
         analyserRef.current.connect(audioContextRef.current.destination);
-        console.log("setupVisualization: AudioContext, Analyser, SourceNode created and connected");
       } else {
         console.log("setupVisualization: AudioContext already initialized");
       }
@@ -141,12 +125,10 @@ function App() {
       draw();
     };
 
-    setupVisualization(); // Call setup directly, it handles ref checks and retry
+    setupVisualization();
 
-  }, [darkMode]); // Dependency array: darkMode - re-run effect on theme change
+  }, [darkMode]);
 
-
-  // Function to handle music generation API call
   const handleGenerate = async () => {
     setLoading(true);
     setError('');
@@ -163,8 +145,8 @@ function App() {
       } else {
         const newTrack = {
           id: Date.now(),
-          wavFilename: data.wav_filename,  // Changed from audioSrc
-          mp3Filename: data.mp3_filename,  // Add this
+          wavFilename: data.wav_filename,
+          mp3Filename: data.mp3_filename,
           midiData: `data:audio/midi;base64,${data.midi_base64}`,
           timestamp: new Date().toLocaleString(),
         };
@@ -180,7 +162,6 @@ function App() {
     setLoading(false);
   };
 
-  // Audio player functions
   const togglePlay = () => {
     console.log("togglePlay: isPlaying before toggle:", isPlaying);
     if (!audioRef.current) {
@@ -225,10 +206,9 @@ function App() {
   };
 
   useEffect(() => {
-    if (currentTrack) { // Check if currentTrack is not null
+    if (currentTrack) {
       console.log("useEffect [currentTrack]: currentTrack changed:", currentTrack);
       if (audioRef.current) {
-        // audioRef.current.load();
         setIsPlaying(false);
         setProgress(0);
         console.log("useEffect [currentTrack]: Audio loaded, isPlaying reset, progress reset");
@@ -262,10 +242,8 @@ function App() {
           transition: 'background 0.5s ease-in-out',
         }}
       >
-        {/* Top Bar Component */}
         <TopBar darkMode={darkMode} toggleTheme={toggleTheme} />
 
-        {/* Main Content Container */}
         <Box sx={{ flexGrow: 1, p: 2 }}>
           <Box
             sx={{
@@ -274,7 +252,6 @@ function App() {
               height: 'calc(100vh - 100px)',
             }}
           >
-            {/* Generation Controls Panel */}
             <motion.div style={{ flex: '1 1 300px', minWidth: '300px', height: '100%' }}>
               <GenerationControls
                 modelType={modelType}
@@ -293,7 +270,6 @@ function App() {
               />
             </motion.div>
 
-            {/* Audio Player Panel */}
             <motion.div style={{ flex: '2 1 400px', minWidth: '400px', height: '100%' }}>
               <AudioPlayer
                 currentTrack={currentTrack}
